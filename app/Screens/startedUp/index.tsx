@@ -8,7 +8,8 @@ export default function StartScreen() {
   const insets = useSafeAreaInsets();
 
   const handleGetStarted = () => {
-    router.push('/login');
+    // @ts-ignore
+      router.push('/pages/login/login');
   };
 
   return (

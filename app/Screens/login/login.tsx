@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, Platform, Alert, A
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { loginUser } from '@/services/api';
+import { loginUser, validateLogin } from '@/services/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -18,9 +18,11 @@ export default function LoginScreen() {
     console.log('🔵 Username:', username);
     console.log('🔵 Password length:', password.length);
     
-    if (!username || !password) {
-      console.log('❌ Validation failed: Missing fields');
-      Alert.alert('Error', 'Please fill in all fields');
+    // Validate form data
+    const validation = validateLogin({ username, password });
+    if (!validation.valid) {
+      console.log('❌ Validation failed:', validation.error);
+      Alert.alert('Error', validation.error || 'Please fill in all fields');
       return;
     }
 
@@ -37,11 +39,8 @@ export default function LoginScreen() {
       console.log('📥 Response type:', typeof response);
       
       // Check for success (handle both boolean true and string "true")
-      const isSuccess = response && (
-        response.success === true || 
-        response.success === 'true' || 
-        response.success === 1
-      );
+        // @ts-ignore
+      const isSuccess = response && (response.success || response.success === 'true' || response.success === 1);
       
       console.log('📥 Is success?', isSuccess);
       
@@ -52,18 +51,21 @@ export default function LoginScreen() {
         // Navigate to home page
         try {
           console.log('🧭 Using router.replace("/home")');
-          router.replace('/home');
+          // @ts-ignore
+            router.replace('/Pages/home/home');
           console.log('✅ router.replace("/home") executed');
           
           // Double check navigation with push after a moment
           setTimeout(() => {
             console.log('🔄 Backup navigation: router.push("/home")');
-            router.push('/home');
+              // @ts-ignore
+            router.push('/Pages/home/home');
           }, 200);
         } catch (navError) {
           console.error('❌ Navigation error:', navError);
           console.log('🔄 Trying alternative: router.push("/home")');
-          router.push('/home');
+            // @ts-ignore
+          router.push('/Pages/home/home');
         }
       } else {
         console.log('❌ Login failed - success check returned false');
@@ -163,11 +165,12 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.registerLink}
-            onPress={() => router.push('/register')}
+              // @ts-ignore what is this
+            onPress={() => router.push('/Pages/register/register')}
             activeOpacity={0.8}
           >
             <Text style={styles.registerLinkText}>
-              Don't have an account? <Text style={styles.registerLinkTextBold}>Create Account</Text>
+                {"Don't have an account?"} <Text style={styles.registerLinkTextBold}>Create Account</Text>
             </Text>
           </TouchableOpacity>
         </View>
