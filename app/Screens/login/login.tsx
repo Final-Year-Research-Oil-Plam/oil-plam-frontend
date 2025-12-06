@@ -32,7 +32,7 @@ export default function LoginScreen() {
     
     try {
       console.log('📡 Calling loginUser API...');
-      const response = await loginUser(username, password);
+      const response = await loginUser({ username, password });
       
       console.log('📥 Login API response received:', JSON.stringify(response, null, 2));
       console.log('📥 Response success value:', response?.success);
@@ -46,7 +46,7 @@ export default function LoginScreen() {
       console.log('📥 Is success?', isSuccess);
       
       if (isSuccess) {
-        console.log('✅ Login successful! User data:', response.user);
+        console.log('✅ Login successful! User data:', response);
         console.log('🧭 Attempting to navigate to /home...');
         
         // Navigate to home page

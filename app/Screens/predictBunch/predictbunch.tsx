@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ const blockOptions = [
   { label: 'Block B', value: 'B' },
   { label: 'Block C', value: 'C' },
 ];
-const treeOptions = {
+const treeOptions: Record<string, { label: string; value: string }[]> = {
   A: [ { label: 'Tree 1', value: '1' }, { label: 'Tree 2', value: '2' } ],
   B: [ { label: 'Tree 3', value: '3' }, { label: 'Tree 4', value: '4' } ],
   C: [ { label: 'Tree 5', value: '5' }, { label: 'Tree 6', value: '6' } ],
@@ -57,13 +57,13 @@ export default function PredictBunchScreen() {
       <Text style={styles.label}>Select Block ID</Text>
       <Picker
         selectedValue={blockId}
-        onValueChange={value => {
+        onValueChange={(value: string) => {
           setBlockId(value);
           setTreeId(treeOptions[value][0].value);
         }}
         style={styles.picker}
       >
-        {blockOptions.map(opt => (
+        {blockOptions.map((opt) => (
           <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
         ))}
       </Picker>
@@ -71,10 +71,10 @@ export default function PredictBunchScreen() {
       <Text style={styles.label}>Select Tree ID</Text>
       <Picker
         selectedValue={treeId}
-        onValueChange={value => setTreeId(value)}
+        onValueChange={(value: string) => setTreeId(value)}
         style={styles.picker}
       >
-        {treeOptions[blockId].map(opt => (
+        {treeOptions[blockId].map((opt: { label: string; value: string }) => (
           <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
         ))}
       </Picker>
@@ -82,10 +82,10 @@ export default function PredictBunchScreen() {
       <Text style={styles.label}>Select Bunch ID</Text>
       <Picker
         selectedValue={bunchId}
-        onValueChange={value => setBunchId(value)}
+        onValueChange={(value: string) => setBunchId(value)}
         style={styles.picker}
       >
-        {bunchOptions.map(opt => (
+        {bunchOptions.map((opt) => (
           <Picker.Item key={opt.value} label={opt.label} value={opt.value} />
         ))}
       </Picker>
