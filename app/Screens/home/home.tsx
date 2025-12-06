@@ -1,31 +1,33 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 // Define props for FeatureCard
 interface FeatureCardProps {
     icon: keyof typeof Ionicons.glyphMap; // ensures valid Ionicons name
     title: string;
     description: string;
-    gradientColors: string[];
+    gradientColors: [string, string];
     iconColor: string;
     onPress?: () => void;
 }
 
 export default function HomeScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter(); // Fixed router usage
 
-    const FeatureCard = ({
-                             icon,
-                             title,
-                             description,
-                             gradientColors,
-                             iconColor,
-                             onPress,
-                         }: FeatureCardProps) => (
+    // FeatureCard component
+    const FeatureCard: React.FC<FeatureCardProps> = ({
+                                                         icon,
+                                                         title,
+                                                         description,
+                                                         gradientColors,
+                                                         iconColor,
+                                                         onPress,
+                                                     }) => (
         <TouchableOpacity style={styles.featureCard} onPress={onPress} activeOpacity={0.9}>
             <LinearGradient
                 colors={gradientColors}
@@ -46,7 +48,7 @@ export default function HomeScreen() {
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top }]}> 
             <LinearGradient
                 colors={['#1B5E20', '#2E7D32', '#388E3C']}
                 style={styles.headerGradient}
@@ -62,23 +64,23 @@ export default function HomeScreen() {
                 </View>
             </LinearGradient>
 
-            <View style={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={[styles.content, { paddingBottom: insets.bottom + 20 }]}> 
                 <FeatureCard
                     icon="add-circle-outline"
                     title="Add Tree"
                     description="Add a new oil palm tree to the plantation"
                     gradientColors={['#2E7D32', '#388E3C']}
                     iconColor="#FFFFFF"
-                    onPress={() => router.push('/Pages/addTree/add-tree')}
+                    onPress={() => router.push('/Screens/addTree/add-tree')}
                 />
 
                 <FeatureCard
-                    icon="qr-code-outline"
-                    title="Scan QR Code"
-                    description="Scan tree QR codes to access detailed information"
-                    gradientColors={['#4CAF50', '#66BB6A']}
+                    icon="leaf-outline"
+                    title="Predict Bunch"
+                    description="Predict oil palm bunch yield"
+                    gradientColors={['#43A047', '#388E3C']}
                     iconColor="#FFFFFF"
-                    onPress={() => router.push('/Pages/qrscan/qr-scan')}
+                    onPress={() => {/* TODO: Add navigation for Predict Bunch */}}
                 />
 
                 <FeatureCard
@@ -87,7 +89,7 @@ export default function HomeScreen() {
                     description="Find and view tree information by ID or location"
                     gradientColors={['#388E3C', '#4CAF50']}
                     iconColor="#FFFFFF"
-                    onPress={() => router.push('/Pages/searchTree/search-tree')}
+                    onPress={() => router.push('/Screens/searchTree/search-tree')}
                 />
             </View>
         </View>

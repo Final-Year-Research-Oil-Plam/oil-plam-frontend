@@ -6,6 +6,7 @@ import { loginUser, validateLogin } from '@/services/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import React from 'react';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -165,8 +166,8 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.registerLink}
-              // @ts-ignore what is this
-            onPress={() => router.push('/Pages/register/register')}
+              
+            onPress={() => router.push('/Screens/register/register')}
             activeOpacity={0.8}
           >
             <Text style={styles.registerLinkText}>

@@ -58,6 +58,10 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "API_URL_DEV": "http://localhost:3000/api",
+      "API_URL_PROD": "https://your-production-api.com/api"
     }
   }
 }

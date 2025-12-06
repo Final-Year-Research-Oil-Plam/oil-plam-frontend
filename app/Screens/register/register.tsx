@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { registerUser, validateRegistration } from '@/services/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
