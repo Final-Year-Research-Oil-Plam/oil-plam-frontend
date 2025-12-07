@@ -52,21 +52,21 @@ export default function LoginScreen() {
         // Navigate to home page
         try {
           console.log('🧭 Using router.replace("/home")');
-          // @ts-ignore
-            router.replace('/Pages/home/home');
+          
+            router.replace('/Screens/home/home');
           console.log('✅ router.replace("/home") executed');
           
           // Double check navigation with push after a moment
           setTimeout(() => {
             console.log('🔄 Backup navigation: router.push("/home")');
-              // @ts-ignore
-            router.push('/Pages/home/home');
+              
+            router.push('/Screens/home/home');
           }, 200);
         } catch (navError) {
           console.error('❌ Navigation error:', navError);
           console.log('🔄 Trying alternative: router.push("/home")');
-            // @ts-ignore
-          router.push('/Pages/home/home');
+            
+          router.push('/Screens/home/home');
         }
       } else {
         console.log('❌ Login failed - success check returned false');

@@ -13,13 +13,24 @@ export interface ApiResponse<T> {
 // Register user
 // ----------------------
 export const registerUser = async (
-  formData: RegisterFormData
+  nic: string,
+  username: string,
+  password: string,
+  confirmPassword: string
 ): Promise<ApiResponse<AuthResponse>> => {
   try {
+    const formData: RegisterFormData = {
+      nic,
+      username,
+      password,
+      confirmPassword,
+    };
+
     const data = await apiPost<ApiResponse<AuthResponse>>(
       '/auth/register',
       formData
     );
+
     return data;
   } catch (error: any) {
     console.error('Registration error:', error);
@@ -29,6 +40,7 @@ export const registerUser = async (
     };
   }
 };
+
 
 // ----------------------
 // Login user
