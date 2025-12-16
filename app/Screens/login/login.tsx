@@ -47,27 +47,10 @@ export default function LoginScreen() {
       
       if (isSuccess) {
         console.log('✅ Login successful! User data:', response);
-        console.log('🧭 Attempting to navigate to /home...');
+        console.log('🧭 Navigating to home...');
         
-        // Navigate to home page
-        try {
-          console.log('🧭 Using router.replace("/home")');
-          
-            router.replace('/Screens/home/home');
-          console.log('✅ router.replace("/home") executed');
-          
-          // Double check navigation with push after a moment
-          setTimeout(() => {
-            console.log('🔄 Backup navigation: router.push("/home")');
-              
-            router.push('/Screens/home/home');
-          }, 200);
-        } catch (navError) {
-          console.error('❌ Navigation error:', navError);
-          console.log('🔄 Trying alternative: router.push("/home")');
-            
-          router.push('/Screens/home/home');
-        }
+        // Navigate to home page - use replace to prevent going back
+        router.replace('/Screens/home/home');
       } else {
         console.log('❌ Login failed - success check returned false');
         console.log('❌ Full response object:', response);

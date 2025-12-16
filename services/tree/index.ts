@@ -89,6 +89,35 @@ export async function getAllTrees(): Promise<ApiResponse<TreeResponse[]>> {
   }
 }
 
+// Search/filter trees by block_id
+export async function searchTreesByBlock(blockId: string): Promise<ApiResponse<TreeResponse[]>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/trees?block_id=${encodeURIComponent(blockId)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || 'Failed to fetch trees for this block. Please try again.',
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Search trees by block error:', error);
+    return {
+      success: false,
+      message: 'Network error. Please check your connection.',
+    };
+  }
+}
+
 // Export types and utilities
 export type { TreeData, TreeResponse, TreeFormData };
 export { validateTreeForm, validateGpsCoordinates, validateFertilizerQty } from './validation';

@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Modal,
+  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -27,6 +28,8 @@ import {
   type TreeFormData,
   type TreeData,
 } from '@/services/tree';
+import { fetchAllBlocks } from '@/services/block';
+import type { BlockResponse } from '@/services/block/types';
 
 export default function AddTreeScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +37,15 @@ export default function AddTreeScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [showPlantedDatePicker, setShowPlantedDatePicker] = useState(false);
   const [plantedDateValue, setPlantedDateValue] = useState<Date>(new Date());
+  const [showFertilizerDatePicker, setShowFertilizerDatePicker] = useState(false);
+  const [fertilizerDateValue, setFertilizerDateValue] = useState<Date>(new Date());
+  const [showPruningDatePicker, setShowPruningDatePicker] = useState(false);
+  const [pruningDateValue, setPruningDateValue] = useState<Date>(new Date());
+  const [showWeedingDatePicker, setShowWeedingDatePicker] = useState(false);
+  const [weedingDateValue, setWeedingDateValue] = useState<Date>(new Date());
+  const [showBlockDropdown, setShowBlockDropdown] = useState(false);
+  const [blocks, setBlocks] = useState<BlockResponse[]>([]);
+  const [blocksLoading, setBlocksLoading] = useState(false);
   const [formData, setFormData] = useState<TreeFormData>({
     blockId: '',
     treeNumber: '',
@@ -54,6 +66,35 @@ export default function AddTreeScreen() {
     const age = calculateTreeAge(formData.plantedDate);
     setFormData((prev) => ({ ...prev, age }));
   }, [formData.plantedDate]);
+
+  // Fetch blocks on component mount
+  useEffect(() => {
+    fetchBlocks();
+  }, []);
+
+  // Fetch blocks from API using service layer
+  const fetchBlocks = async () => {
+    setBlocksLoading(true);
+    try {
+      console.log('🔗 Fetching blocks...');
+      
+      const result = await fetchAllBlocks();
+      console.log('📦 Blocks API Response:', result);
+      
+      if (result.success && result.data) {
+        setBlocks(result.data);
+        console.log('✅ Blocks loaded successfully:', result.data.length, 'blocks');
+      } else {
+        console.warn('⚠️ No blocks data in response:', result.message);
+        Alert.alert('Warning', result.message || 'Could not load blocks. You can still enter Block ID manually.');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching blocks:', error);
+      Alert.alert('Warning', 'Could not load blocks. You can still enter Block ID manually.');
+    } finally {
+      setBlocksLoading(false);
+    }
+  };
 
   // Get current GPS location
   const getCurrentLocation = async () => {
@@ -85,9 +126,19 @@ export default function AddTreeScreen() {
         'Location Set',
         `GPS coordinates set:\nLatitude: ${location.coords.latitude.toFixed(6)}\nLongitude: ${location.coords.longitude.toFixed(6)}`
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Failed to get location. Please try again.');
+      let errorMessage = 'Failed to get location. Please try again.';
+      
+      if (error.code === 'E_LOCATION_SERVICES_DISABLED') {
+        errorMessage = 'Location services are disabled. Please enable them in settings.';
+      } else if (error.code === 'E_LOCATION_TIMEOUT') {
+        errorMessage = 'Location request timed out. Please try again.';
+      } else if (error.code === 'E_LOCATION_UNAVAILABLE') {
+        errorMessage = 'Location unavailable. Please check your GPS signal.';
+      }
+      
+      Alert.alert('Location Error', errorMessage);
     } finally {
       setLocationLoading(false);
     }
@@ -125,37 +176,71 @@ export default function AddTreeScreen() {
     }
   };
 
-  // Show date picker for other date fields (keeping simple for now)
-  const showDatePicker = (field: 'lastFertilizerDate' | 'lastPruningDate' | 'lastWeedingDate') => {
-    Alert.prompt(
-      'Select Date',
-      'Enter date in YYYY-MM-DD format',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Use Today',
-          onPress: () => {
-            const today = formatDate(new Date());
-            setFormData((prev) => ({ ...prev, [field]: today }));
-          },
-        },
-        {
-          text: 'OK',
-          onPress: (date?: string) => {
-            if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-              setFormData((prev) => ({ ...prev, [field]: date }));
-            } else {
-              Alert.alert('Invalid Date', 'Please enter date in YYYY-MM-DD format');
-            }
-          },
-        },
-      ],
-      'plain-text',
-      formData[field] || formatDate(new Date())
-    );
+  // Handlers for other date pickers
+  const handleFertilizerDatePress = () => {
+    if (formData.lastFertilizerDate) {
+      const date = new Date(formData.lastFertilizerDate + 'T00:00:00');
+      if (!isNaN(date.getTime())) {
+        setFertilizerDateValue(date);
+      }
+    }
+    setShowFertilizerDatePicker(true);
+  };
+
+  const handleFertilizerDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowFertilizerDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const formattedDate = formatDate(selectedDate);
+        setFormData((prev) => ({ ...prev, lastFertilizerDate: formattedDate }));
+      }
+    } else if (event.type === 'set' && selectedDate) {
+      setFertilizerDateValue(selectedDate);
+    }
+  };
+
+  const handlePruningDatePress = () => {
+    if (formData.lastPruningDate) {
+      const date = new Date(formData.lastPruningDate + 'T00:00:00');
+      if (!isNaN(date.getTime())) {
+        setPruningDateValue(date);
+      }
+    }
+    setShowPruningDatePicker(true);
+  };
+
+  const handlePruningDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowPruningDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const formattedDate = formatDate(selectedDate);
+        setFormData((prev) => ({ ...prev, lastPruningDate: formattedDate }));
+      }
+    } else if (event.type === 'set' && selectedDate) {
+      setPruningDateValue(selectedDate);
+    }
+  };
+
+  const handleWeedingDatePress = () => {
+    if (formData.lastWeedingDate) {
+      const date = new Date(formData.lastWeedingDate + 'T00:00:00');
+      if (!isNaN(date.getTime())) {
+        setWeedingDateValue(date);
+      }
+    }
+    setShowWeedingDatePicker(true);
+  };
+
+  const handleWeedingDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowWeedingDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const formattedDate = formatDate(selectedDate);
+        setFormData((prev) => ({ ...prev, lastWeedingDate: formattedDate }));
+      }
+    } else if (event.type === 'set' && selectedDate) {
+      setWeedingDateValue(selectedDate);
+    }
   };
 
   // Validate and submit form
@@ -228,17 +313,16 @@ export default function AddTreeScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
-            activeOpacity={0.8}
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.logoContainer}>
             <View style={styles.logoCircle}>
-              <Ionicons name="add-circle" size={40} color="#FFFFFF" />
+              <Ionicons name="leaf" size={40} color="#FFFFFF" />
             </View>
           </View>
           <Text style={styles.headerTitle}>Add New Tree</Text>
-          <Text style={styles.headerSubtitle}>Register oil palm tree information</Text>
+          <Text style={styles.headerSubtitle}>Register a new oil palm tree</Text>
         </View>
       </LinearGradient>
 
@@ -249,40 +333,116 @@ export default function AddTreeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.formCard}>
-          {/* Block ID */}
+          {/* Block ID Dropdown */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
             
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Block ID *</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity
+                style={styles.dateInput}
+                onPress={() => setShowBlockDropdown(true)}
+                activeOpacity={0.8}
+                disabled={loading}
+              >
                 <Ionicons name="grid-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter Block ID"
-                  placeholderTextColor="#9E9E9E"
-                  value={formData.blockId}
-                  onChangeText={(value) => updateFormData('blockId', value)}
-                  autoCapitalize="characters"
-                />
-              </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  {formData.blockId ? (
+                    <>
+                      <Text style={[styles.dateText, { marginBottom: 2 }]}>
+                        {formData.blockId}
+                      </Text>
+                      <Text style={[styles.helperText, { marginTop: 0 }]}>
+                        {blocks.find(b => b.id === formData.blockId)?.name || 'Loading...'}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.dateText, styles.placeholderText]}>
+                      Select Block
+                    </Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#9E9E9E" />
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Tree Number</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="code-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, styles.disabledInput]}
-                  placeholder="Auto-generated"
-                  placeholderTextColor="#9E9E9E"
-                  value={formData.treeNumber}
-                  editable={false}
-                />
-                <Ionicons name="lock-closed" size={16} color="#9E9E9E" />
+            {/* Block Dropdown Modal */}
+            <Modal
+              visible={showBlockDropdown}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowBlockDropdown(false)}
+            >
+              <View style={styles.dropdownModal}>
+                <View style={styles.dropdownContainer}>
+                  <View style={styles.dropdownHeader}>
+                    <Text style={styles.dropdownTitle}>Select Block</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowBlockDropdown(false)}
+                      style={styles.closeButton}
+                    >
+                      <Ionicons name="close" size={24} color="#757575" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {blocksLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="large" color="#2E7D32" />
+                      <Text style={styles.loadingText}>Loading blocks...</Text>
+                    </View>
+                  ) : blocks.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <Ionicons name="folder-open-outline" size={48} color="#9E9E9E" />
+                      <Text style={styles.emptyText}>No blocks available</Text>
+                      <Text style={styles.emptySubtext}>Please contact administrator to add blocks</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={blocks}
+                      keyExtractor={(item) => item.id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownItem,
+                            formData.blockId === item.id && styles.dropdownItemSelected,
+                          ]}
+                          onPress={() => {
+                            updateFormData('blockId', item.id);
+                            setShowBlockDropdown(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.dropdownItemContent}>
+                            <View style={styles.dropdownItemLeft}>
+                              <Ionicons 
+                                name="grid" 
+                                size={20} 
+                                color={formData.blockId === item.id ? '#2E7D32' : '#757575'} 
+                              />
+                              <View style={styles.dropdownItemText}>
+                                <Text style={[
+                                  styles.dropdownItemTitle,
+                                  formData.blockId === item.id && styles.dropdownItemTitleSelected,
+                                ]}>
+                                  {item.id}
+                                </Text>
+                                <Text style={styles.dropdownItemSubtitle}>
+                                  {item.name} • {item.areaSize}
+                                </Text>
+                              </View>
+                            </View>
+                            {formData.blockId === item.id && (
+                              <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                      ItemSeparatorComponent={() => <View style={styles.dropdownSeparator} />}
+                    />
+                  )}
+                </View>
               </View>
-              <Text style={styles.helperText}>Tree number will be auto-generated in database</Text>
-            </View>
+            </Modal>
           </View>
 
           {/* GPS Location */}
@@ -339,6 +499,7 @@ export default function AddTreeScreen() {
                   placeholderTextColor="#9E9E9E"
                   value={formData.placeId}
                   onChangeText={(value) => updateFormData('placeId', value)}
+                  editable={!loading}
                 />
               </View>
               <Text style={styles.helperText}>Optional: Google Maps Place ID for location reference</Text>
@@ -355,6 +516,7 @@ export default function AddTreeScreen() {
                 style={styles.dateInput}
                 onPress={handlePlantedDatePress}
                 activeOpacity={0.8}
+                disabled={loading}
               >
                 <Ionicons name="calendar-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
                 <Text style={[styles.dateText, !formData.plantedDate && styles.placeholderText]}>
@@ -454,6 +616,7 @@ export default function AddTreeScreen() {
                   placeholderTextColor="#9E9E9E"
                   value={formData.fertilizerType}
                   onChangeText={(value) => updateFormData('fertilizerType', value)}
+                  editable={!loading}
                 />
               </View>
             </View>
@@ -469,6 +632,7 @@ export default function AddTreeScreen() {
                   value={formData.fertilizerQty}
                   onChangeText={(value) => updateFormData('fertilizerQty', value)}
                   keyboardType="decimal-pad"
+                  editable={!loading}
                 />
               </View>
             </View>
@@ -477,16 +641,69 @@ export default function AddTreeScreen() {
               <Text style={styles.label}>Last Fertilizer Date</Text>
               <TouchableOpacity
                 style={styles.dateInput}
-                onPress={() => showDatePicker('lastFertilizerDate')}
+                onPress={handleFertilizerDatePress}
                 activeOpacity={0.8}
+                disabled={loading}
               >
                 <Ionicons name="calendar-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
                 <Text style={[styles.dateText, !formData.lastFertilizerDate && styles.placeholderText]}>
-                  {formData.lastFertilizerDate || 'Select Last Fertilizer Date'}
+                  {formData.lastFertilizerDate ? formatDateDisplay(formData.lastFertilizerDate) : 'Select Last Fertilizer Date'}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#9E9E9E" />
               </TouchableOpacity>
             </View>
+
+            {/* Fertilizer Date Picker */}
+            {showFertilizerDatePicker && (
+              Platform.OS === 'ios' ? (
+                <Modal
+                  visible={showFertilizerDatePicker}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowFertilizerDatePicker(false)}
+                >
+                  <View style={styles.datePickerModal}>
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity
+                          onPress={() => setShowFertilizerDatePicker(false)}
+                          style={styles.datePickerCancelButton}
+                        >
+                          <Text style={styles.datePickerCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.datePickerTitle}>Last Fertilizer Date</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const formattedDate = formatDate(fertilizerDateValue);
+                            setFormData((prev) => ({ ...prev, lastFertilizerDate: formattedDate }));
+                            setShowFertilizerDatePicker(false);
+                          }}
+                          style={styles.datePickerDoneButton}
+                        >
+                          <Text style={styles.datePickerDoneText}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={fertilizerDateValue}
+                        mode="date"
+                        display="spinner"
+                        onChange={handleFertilizerDateChange}
+                        maximumDate={new Date()}
+                        style={styles.datePicker}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={fertilizerDateValue}
+                  mode="date"
+                  display="default"
+                  onChange={handleFertilizerDateChange}
+                  maximumDate={new Date()}
+                />
+              )
+            )}
           </View>
 
           {/* Maintenance Information */}
@@ -497,31 +714,137 @@ export default function AddTreeScreen() {
               <Text style={styles.label}>Last Pruning Date</Text>
               <TouchableOpacity
                 style={styles.dateInput}
-                onPress={() => showDatePicker('lastPruningDate')}
+                onPress={handlePruningDatePress}
                 activeOpacity={0.8}
+                disabled={loading}
               >
                 <Ionicons name="calendar-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
                 <Text style={[styles.dateText, !formData.lastPruningDate && styles.placeholderText]}>
-                  {formData.lastPruningDate || 'Select Last Pruning Date'}
+                  {formData.lastPruningDate ? formatDateDisplay(formData.lastPruningDate) : 'Select Last Pruning Date'}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#9E9E9E" />
               </TouchableOpacity>
             </View>
 
+            {/* Pruning Date Picker */}
+            {showPruningDatePicker && (
+              Platform.OS === 'ios' ? (
+                <Modal
+                  visible={showPruningDatePicker}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowPruningDatePicker(false)}
+                >
+                  <View style={styles.datePickerModal}>
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity
+                          onPress={() => setShowPruningDatePicker(false)}
+                          style={styles.datePickerCancelButton}
+                        >
+                          <Text style={styles.datePickerCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.datePickerTitle}>Last Pruning Date</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const formattedDate = formatDate(pruningDateValue);
+                            setFormData((prev) => ({ ...prev, lastPruningDate: formattedDate }));
+                            setShowPruningDatePicker(false);
+                          }}
+                          style={styles.datePickerDoneButton}
+                        >
+                          <Text style={styles.datePickerDoneText}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={pruningDateValue}
+                        mode="date"
+                        display="spinner"
+                        onChange={handlePruningDateChange}
+                        maximumDate={new Date()}
+                        style={styles.datePicker}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={pruningDateValue}
+                  mode="date"
+                  display="default"
+                  onChange={handlePruningDateChange}
+                  maximumDate={new Date()}
+                />
+              )
+            )}
+
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Last Weeding Date</Text>
               <TouchableOpacity
                 style={styles.dateInput}
-                onPress={() => showDatePicker('lastWeedingDate')}
+                onPress={handleWeedingDatePress}
                 activeOpacity={0.8}
+                disabled={loading}
               >
                 <Ionicons name="calendar-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
                 <Text style={[styles.dateText, !formData.lastWeedingDate && styles.placeholderText]}>
-                  {formData.lastWeedingDate || 'Select Last Weeding Date'}
+                  {formData.lastWeedingDate ? formatDateDisplay(formData.lastWeedingDate) : 'Select Last Weeding Date'}
                 </Text>
                 <Ionicons name="chevron-forward" size={20} color="#9E9E9E" />
               </TouchableOpacity>
             </View>
+
+            {/* Weeding Date Picker */}
+            {showWeedingDatePicker && (
+              Platform.OS === 'ios' ? (
+                <Modal
+                  visible={showWeedingDatePicker}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowWeedingDatePicker(false)}
+                >
+                  <View style={styles.datePickerModal}>
+                    <View style={styles.datePickerContainer}>
+                      <View style={styles.datePickerHeader}>
+                        <TouchableOpacity
+                          onPress={() => setShowWeedingDatePicker(false)}
+                          style={styles.datePickerCancelButton}
+                        >
+                          <Text style={styles.datePickerCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.datePickerTitle}>Last Weeding Date</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const formattedDate = formatDate(weedingDateValue);
+                            setFormData((prev) => ({ ...prev, lastWeedingDate: formattedDate }));
+                            setShowWeedingDatePicker(false);
+                          }}
+                          style={styles.datePickerDoneButton}
+                        >
+                          <Text style={styles.datePickerDoneText}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={weedingDateValue}
+                        mode="date"
+                        display="spinner"
+                        onChange={handleWeedingDateChange}
+                        maximumDate={new Date()}
+                        style={styles.datePicker}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : (
+                <DateTimePicker
+                  value={weedingDateValue}
+                  mode="date"
+                  display="default"
+                  onChange={handleWeedingDateChange}
+                  maximumDate={new Date()}
+                />
+              )
+            )}
           </View>
 
           {/* Submit Button */}
@@ -800,7 +1123,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonGradient: {
-    paddingVertical: 18,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -814,6 +1137,113 @@ const styles = StyleSheet.create({
       ios: { fontFamily: 'System' },
       android: { fontFamily: 'sans-serif-medium' },
     }),
+  },
+  datePicker: {
+    width: '100%',
+    height: 200,
+  },
+  dropdownModal: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  dropdownContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#212121',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#757575',
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#424242',
+  },
+  emptySubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#757575',
+    textAlign: 'center',
+  },
+  dropdownItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#E8F5E9',
+  },
+  dropdownItemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dropdownItemText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  dropdownItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212121',
+    marginBottom: 4,
+  },
+  dropdownItemTitleSelected: {
+    color: '#2E7D32',
+  },
+  dropdownItemSubtitle: {
+    fontSize: 14,
+    color: '#757575',
+  },
+  dropdownSeparator: {
+    height: 1,
+    backgroundColor: '#F5F5F5',
+    marginLeft: 52,
   },
   datePickerModal: {
     flex: 1,
@@ -880,10 +1310,6 @@ const styles = StyleSheet.create({
       ios: { fontFamily: 'System' },
       android: { fontFamily: 'sans-serif-medium' },
     }),
-  },
-  datePicker: {
-    width: '100%',
-    height: 200,
   },
 });
 

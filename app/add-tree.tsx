@@ -12,13 +12,33 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { addTree, TreeData } from '@/services/api';
+import { addTree, searchTreesByBlock } from '@/services/tree';
+import { fetchAllBlocks } from '@/services/block';
+import type { Block } from '@/services/block/types';
+import type { TreeResponse } from '@/services/tree/types';
+
+interface TreeData {
+  blockId: string;
+  treeNumber?: string;
+  latitude: number | null;
+  longitude: number | null;
+  placeId?: string;
+  plantedDate?: string;
+  plantedYear?: string;
+  age?: number;
+  fertilizerType?: string;
+  fertilizerQty?: string;
+  lastFertilizerDate?: string;
+  lastPruningDate?: string;
+  lastWeedingDate?: string;
+}
 
 interface TreeFormData {
   blockId: string;
@@ -42,6 +62,15 @@ export default function AddTreeScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [showPlantedDatePicker, setShowPlantedDatePicker] = useState(false);
   const [plantedDateValue, setPlantedDateValue] = useState<Date>(new Date());
+  
+  // Block and Tree dropdown state
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [trees, setTrees] = useState<TreeResponse[]>([]);
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState(false);
+  const [isLoadingTrees, setIsLoadingTrees] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('');
+  const [selectedTreeId, setSelectedTreeId] = useState<string>('');
+  
   const [formData, setFormData] = useState<TreeFormData>({
     blockId: '',
     treeNumber: '',
@@ -57,6 +86,23 @@ export default function AddTreeScreen() {
     lastPruningDate: '',
     lastWeedingDate: '',
   });
+
+  // Fetch all blocks on component mount
+  useEffect(() => {
+    console.log('🚀 AddTreeScreen mounted - loading blocks...');
+    loadBlocks();
+  }, []);
+
+  // Fetch trees when block is selected
+  useEffect(() => {
+    if (selectedBlockId) {
+      loadTreesByBlock(selectedBlockId);
+    } else {
+      // Clear trees when no block is selected
+      setTrees([]);
+      setSelectedTreeId('');
+    }
+  }, [selectedBlockId]);
 
   // Auto-calculate age when planted date or year changes
   useEffect(() => {
@@ -78,6 +124,57 @@ export default function AddTreeScreen() {
       setFormData((prev) => ({ ...prev, age: 0 }));
     }
   }, [formData.plantedDate, formData.plantedYear]);
+
+  // Load all blocks from API
+  const loadBlocks = async () => {
+    console.log('🔄 Starting to load blocks...');
+    setIsLoadingBlocks(true);
+    try {
+      const response = await fetchAllBlocks();
+      console.log('📦 Block response:', JSON.stringify(response, null, 2));
+      
+      if (response.success && response.data) {
+        console.log('✅ Blocks loaded successfully:', response.data.length, 'blocks');
+        setBlocks(response.data);
+      } else {
+        console.log('❌ Failed to load blocks:', response.message);
+        Alert.alert('Error', response.message || 'Failed to load blocks');
+      }
+    } catch (error) {
+      console.error('💥 Error loading blocks:', error);
+      Alert.alert('Error', 'Failed to load blocks. Please check console for details.');
+    } finally {
+      setIsLoadingBlocks(false);
+      console.log('🏁 Finished loading blocks');
+    }
+  };
+
+  // Load trees filtered by block ID
+  const loadTreesByBlock = async (blockId: string) => {
+    setIsLoadingTrees(true);
+    try {
+      const response = await searchTreesByBlock(blockId);
+      if (response.success && response.data) {
+        setTrees(response.data);
+      } else {
+        // Empty result is ok, just clear the list
+        setTrees([]);
+      }
+    } catch (error) {
+      console.error('Error loading trees:', error);
+      setTrees([]);
+    } finally {
+      setIsLoadingTrees(false);
+    }
+  };
+
+  // Handle block selection
+  const handleBlockChange = (blockId: string) => {
+    setSelectedBlockId(blockId);
+    setFormData((prev) => ({ ...prev, blockId }));
+    // Clear tree selection when block changes
+    setSelectedTreeId('');
+  };
 
   // Get current GPS location
   const getCurrentLocation = async () => {
@@ -190,7 +287,7 @@ export default function AddTreeScreen() {
         },
         {
           text: 'OK',
-          onPress: (date) => {
+          onPress: (date?: string) => {
             if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
               setFormData((prev) => ({ ...prev, [field]: date }));
             } else {
@@ -310,24 +407,53 @@ export default function AddTreeScreen() {
             <Text style={styles.sectionTitle}>Basic Information</Text>
             
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Block ID *</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="grid-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter Block ID"
-                  placeholderTextColor="#9E9E9E"
-                  value={formData.blockId}
-                  onChangeText={(value) => updateFormData('blockId', value)}
-                  autoCapitalize="characters"
-                />
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Block ID *</Text>
+                {blocks.length === 0 && !isLoadingBlocks && (
+                  <TouchableOpacity onPress={loadBlocks} style={styles.retryButton}>
+                    <Ionicons name="refresh" size={16} color="#2E7D32" />
+                    <Text style={styles.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+              <View style={styles.pickerWrapper}>
+                <Ionicons name="grid-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
+                {isLoadingBlocks ? (
+                  <View style={styles.pickerLoadingContainer}>
+                    <ActivityIndicator size="small" color="#2E7D32" />
+                    <Text style={styles.pickerLoadingText}>Loading blocks...</Text>
+                  </View>
+                ) : (
+                  <Picker
+                    selectedValue={selectedBlockId}
+                    onValueChange={handleBlockChange}
+                    style={styles.picker}
+                    enabled={blocks.length > 0}
+                  >
+                    <Picker.Item label="Select a Block" value="" />
+                    {blocks.map((block) => (
+                      <Picker.Item
+                        key={block.id}
+                        label={`${block.id} - ${block.name}`}
+                        value={block.id}
+
+                      />
+                    ))}
+                  </Picker>
+                )}
+              </View>
+              {blocks.length === 0 && !isLoadingBlocks && (
+                <Text style={styles.helperText}>No blocks found. Check console logs or tap Retry.</Text>
+              )}
+              {blocks.length > 0 && (
+                <Text style={styles.helperText}>{blocks.length} block(s) available</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Tree Number</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="hash-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
+                <Ionicons name="keypad-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, styles.disabledInput]}
                   placeholder="Auto-generated"
@@ -339,6 +465,46 @@ export default function AddTreeScreen() {
               </View>
               <Text style={styles.helperText}>Tree number will be auto-generated in database</Text>
             </View>
+
+            {/* Tree Reference Dropdown (Optional - for viewing existing trees) */}
+            {selectedBlockId && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Existing Trees in Block (Reference Only)</Text>
+                <View style={styles.pickerWrapper}>
+                  <Ionicons name="list-outline" size={20} color="#2E7D32" style={styles.inputIcon} />
+                  {isLoadingTrees ? (
+                    <View style={styles.pickerLoadingContainer}>
+                      <ActivityIndicator size="small" color="#2E7D32" />
+                      <Text style={styles.pickerLoadingText}>Loading trees...</Text>
+                    </View>
+                  ) : (
+                    <Picker
+                      selectedValue={selectedTreeId}
+                      onValueChange={(value) => setSelectedTreeId(value)}
+                      style={styles.picker}
+                      enabled={trees.length > 0}
+                    >
+                      <Picker.Item label="View existing trees in this block" value="" />
+                      {trees.map((tree) => (
+                        <Picker.Item
+                          key={tree.treeId || tree.treeNumber}
+                          label={`Tree ${tree.treeNumber || tree.treeId} - Age: ${tree.age || 'N/A'}`}
+                          value={tree.treeId || tree.treeNumber || ''}
+                        />
+                      ))}
+                    </Picker>
+                  )}
+                </View>
+                {trees.length === 0 && !isLoadingTrees && (
+                  <Text style={styles.helperText}>No trees found in this block. You&apos;ll add the first one!</Text>
+                )}
+                {trees.length > 0 && (
+                  <Text style={styles.helperText}>
+                    {trees.length} tree{trees.length > 1 ? 's' : ''} already in this block
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
 
           {/* GPS Location */}
@@ -957,6 +1123,63 @@ const styles = StyleSheet.create({
   datePicker: {
     width: '100%',
     height: 200,
+  },
+  // Picker styles
+  pickerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingLeft: 16,
+    overflow: 'hidden',
+  },
+  picker: {
+    flex: 1,
+    height: 50,
+    ...Platform.select({
+      ios: {
+        marginLeft: -8,
+      },
+      android: {
+        marginLeft: 0,
+      },
+    }),
+  },
+  pickerLoadingContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingRight: 16,
+  },
+  pickerLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#757575',
+    ...Platform.select({
+      ios: { fontFamily: 'System' },
+      android: { fontFamily: 'sans-serif' },
+    }),
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  retryText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '600',
   },
 });
 
