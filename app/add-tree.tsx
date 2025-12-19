@@ -21,6 +21,7 @@ import * as Location from 'expo-location';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { addTree, searchTreesByBlock } from '@/services/tree';
 import { fetchAllBlocks } from '@/services/block';
+import { API_BASE_URL } from '@/services/api-config';
 import type { Block } from '@/services/block/types';
 import type { TreeResponse } from '@/services/tree/types';
 
@@ -128,6 +129,14 @@ export default function AddTreeScreen() {
   // Load all blocks from API
   const loadBlocks = async () => {
     console.log('🔄 Starting to load blocks...');
+    console.log('🔍 Checking API configuration...');
+    console.log('📍 Current API_BASE_URL from config:', API_BASE_URL);
+    
+    if (!API_BASE_URL) {
+      Alert.alert('Configuration Error', 'API_BASE_URL is not configured. Check app.json');
+      return;
+    }
+    
     setIsLoadingBlocks(true);
     try {
       const response = await fetchAllBlocks();
