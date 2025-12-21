@@ -89,10 +89,14 @@ export async function getAllTrees(): Promise<ApiResponse<TreeResponse[]>> {
   }
 }
 
-// Search/filter trees by block_id
+// Search/filter trees by block_id (Cascading Dropdown)
 export async function searchTreesByBlock(blockId: string): Promise<ApiResponse<TreeResponse[]>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/trees?block_id=${encodeURIComponent(blockId)}`, {
+    console.log('🌲 Fetching trees for block:', blockId);
+    const url = `${API_BASE_URL}/trees/by-block/${encodeURIComponent(blockId)}`;
+    console.log('🌍 URL:', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -100,11 +104,13 @@ export async function searchTreesByBlock(blockId: string): Promise<ApiResponse<T
     });
 
     const data = await response.json();
+    console.log('📦 Trees response:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       return {
         success: false,
         message: data.message || 'Failed to fetch trees for this block. Please try again.',
+        data: [],
       };
     }
 

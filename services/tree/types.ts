@@ -29,9 +29,9 @@ export interface TreeData {
 }
 
 export interface TreeResponse {
-  treeId?: string;
-  treeNumber?: string;
-  blockId?: string;
+  id: number;            // Primary key from database
+  treeNumber: string;    // Tree identifier (e.g., "T001")
+  blockId: string;       // Block this tree belongs to
   plantedDate?: string;
   age?: number;
   [key: string]: any;

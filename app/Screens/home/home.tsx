@@ -122,7 +122,7 @@ export default function HomeScreen() {
           description="Predict oil palm bunch yield"
           gradientColors={['#43A047', '#388E3C']}
           iconColor="#FFFFFF"
-          onPress={() => {}}
+          onPress={() => router.push('/Screens/predictBunch/predictbunch')}
         />
 
         <FeatureCard
