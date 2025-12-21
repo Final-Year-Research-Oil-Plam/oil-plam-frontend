@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 
 export default function StartScreen() {
   const insets = useSafeAreaInsets();

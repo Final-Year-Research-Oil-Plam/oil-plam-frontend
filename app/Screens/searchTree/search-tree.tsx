@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,15 +18,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, Camera } from 'expo-camera';
 import { getTreeById } from '@/services/tree';
+import { getPublicTreeDetails } from '@/services/qr';
+import * as ImagePicker from 'expo-image-picker';
+import type { PublicTreeDetails } from '@/services/qr/types';
 
 export default function SearchTreeScreen() {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [treeData, setTreeData] = useState<any>(null);
+  const [treeData, setTreeData] = useState<PublicTreeDetails | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [predicting, setPredicting] = useState(false);
 
   // Request camera permission
   useEffect(() => {
@@ -48,14 +54,14 @@ export default function SearchTreeScreen() {
     try {
       console.log('🔍 Searching for tree:', searchQuery);
       
-      // Try to search by ID (if numeric) or tree number
-      const response = await getTreeById(searchQuery.trim());
+      // Use public endpoint for consistency
+      const response = await getPublicTreeDetails(searchQuery.trim());
 
       if (response.success && response.data) {
         console.log('✅ Tree found:', response.data);
         setTreeData(response.data);
       } else {
-        Alert.alert('Not Found', response.message || 'Tree not found. Please check the ID or Tree Number.');
+        Alert.alert('Not Found', response.message || 'Tree not found. Please check the Tree Number.');
       }
     } catch (error) {
       console.error('❌ Search error:', error);
@@ -72,30 +78,28 @@ export default function SearchTreeScreen() {
     setScanned(true);
     console.log('📷 QR Code scanned:', data);
 
-    // Extract tree ID from QR code data
-    // Expected format: "TREE-ID-123" or just "123" or full tree number "TREE-BLOCK-A-001"
-    let treeId = data;
-    
-    // If QR contains full tree number, extract just the ID or use as is
-    if (data.startsWith('TREE-')) {
-      // For now, use the full tree number to search
-      treeId = data;
-    }
+    // QR code contains tree number (e.g., "TREE-BLOCK-A-001")
+    const treeNumber = data.trim();
 
     setShowScanner(false);
-    setSearchQuery(treeId);
+    setSearchQuery(treeNumber);
     
-    // Automatically search after scan
+    // Automatically fetch tree details using PUBLIC endpoint
     setTimeout(async () => {
       setLoading(true);
+      setTreeData(null);
       try {
-        const response = await getTreeById(treeId);
+        console.log('🔍 Fetching public tree details for:', treeNumber);
+        const response = await getPublicTreeDetails(treeNumber);
+        
         if (response.success && response.data) {
+          console.log('✅ Tree details loaded:', response.data);
           setTreeData(response.data);
         } else {
-          Alert.alert('Not Found', 'Tree not found with scanned QR code');
+          Alert.alert('Not Found', response.message || 'Tree not found with scanned QR code');
         }
       } catch (error) {
+        console.error('❌ Error fetching tree details:', error);
         Alert.alert('Error', 'Failed to fetch tree details');
       } finally {
         setLoading(false);
@@ -120,6 +124,79 @@ export default function SearchTreeScreen() {
     }
     setScanned(false);
     setShowScanner(true);
+  };
+
+  // Pick image for bunch prediction
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access to select images');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  };
+
+  // Take photo for bunch prediction
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera access to take photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  };
+
+  // Predict bunch count from image
+  const predictBunch = async () => {
+    if (!selectedImage) {
+      Alert.alert('No Image', 'Please select or take a photo first');
+      return;
+    }
+
+    if (!treeData) {
+      Alert.alert('No Tree Selected', 'Please search for a tree first');
+      return;
+    }
+
+    setPredicting(true);
+    try {
+      // TODO: Call your ML prediction endpoint here
+      // For now, navigate to prediction screen
+      router.push({
+        pathname: '/Screens/predictBunch/predictbunch',
+        params: {
+          imageUri: selectedImage,
+          treeNumber: treeData.treeNumber,
+          blockId: treeData.blockId,
+        },
+      });
+    } catch (error) {
+      console.error('Prediction error:', error);
+      Alert.alert('Error', 'Failed to predict bunch count');
+    } finally {
+      setPredicting(false);
+    }
   };
 
   // Format date for display
@@ -226,59 +303,140 @@ export default function SearchTreeScreen() {
 
             <View style={styles.divider} />
 
-            {/* Tree Information */}
+            {/* Basic Information */}
             <View style={styles.detailsContainer}>
-              <DetailRow icon="finger-print" label="Tree ID" value={treeData.id} />
+              <Text style={styles.sectionLabel}>Basic Information</Text>
               <DetailRow icon="pricetag" label="Tree Number" value={treeData.treeNumber} />
               <DetailRow icon="grid" label="Block" value={treeData.blockId} />
               <DetailRow icon="calendar" label="Planted Date" value={formatDate(treeData.plantedDate)} />
               <DetailRow icon="time" label="Age" value={treeData.age ? `${treeData.age} years` : 'N/A'} />
               
-              {(treeData.latitude && treeData.longitude) && (
-                <DetailRow 
-                  icon="location" 
-                  label="GPS Location" 
-                  value={`${treeData.latitude.toFixed(6)}, ${treeData.longitude.toFixed(6)}`} 
-                />
-              )}
-
-              {treeData.fertilizerType && (
+              {(treeData.location?.latitude && treeData.location?.longitude) && (
                 <>
                   <View style={styles.sectionDivider} />
-                  <Text style={styles.sectionLabel}>Fertilizer Information</Text>
-                  <DetailRow icon="flask" label="Type" value={treeData.fertilizerType} />
-                  <DetailRow icon="scale" label="Quantity" value={treeData.fertilizerQty || 'N/A'} />
-                  <DetailRow icon="calendar" label="Last Applied" value={formatDate(treeData.lastFertilizerDate)} />
+                  <Text style={styles.sectionLabel}>GPS Location</Text>
+                  <DetailRow 
+                    icon="location" 
+                    label="Coordinates" 
+                    value={`${treeData.location.latitude.toFixed(6)}, ${treeData.location.longitude.toFixed(6)}`} 
+                  />
                 </>
               )}
 
-              {(treeData.lastPruningDate || treeData.lastWeedingDate) && (
+              {treeData.fertilizer && (
+                <>
+                  <View style={styles.sectionDivider} />
+                  <Text style={styles.sectionLabel}>Fertilizer Information</Text>
+                  <DetailRow icon="flask" label="Type" value={treeData.fertilizer.type} />
+                  <DetailRow icon="scale" label="Quantity" value={treeData.fertilizer.quantity} />
+                  <DetailRow icon="calendar" label="Last Applied" value={formatDate(treeData.fertilizer.lastApplied)} />
+                </>
+              )}
+
+              {treeData.maintenance && (
                 <>
                   <View style={styles.sectionDivider} />
                   <Text style={styles.sectionLabel}>Maintenance History</Text>
-                  {treeData.lastPruningDate && (
-                    <DetailRow icon="cut" label="Last Pruning" value={formatDate(treeData.lastPruningDate)} />
+                  {treeData.maintenance.lastPruning && (
+                    <DetailRow icon="cut" label="Last Pruning" value={formatDate(treeData.maintenance.lastPruning)} />
                   )}
-                  {treeData.lastWeedingDate && (
-                    <DetailRow icon="leaf" label="Last Weeding" value={formatDate(treeData.lastWeedingDate)} />
+                  {treeData.maintenance.lastWeeding && (
+                    <DetailRow icon="leaf" label="Last Weeding" value={formatDate(treeData.maintenance.lastWeeding)} />
+                  )}
+                </>
+              )}
+
+              {treeData.harvest && (
+                <>
+                  <View style={styles.sectionDivider} />
+                  <Text style={styles.sectionLabel}>Harvest Information</Text>
+                  {treeData.harvest.estimatedNextHarvest && (
+                    <View style={styles.highlightRow}>
+                      <Ionicons name="calendar" size={18} color="#FF6F00" />
+                      <Text style={styles.highlightLabel}>Next Harvest</Text>
+                      <Text style={styles.highlightValue}>{formatDate(treeData.harvest.estimatedNextHarvest)}</Text>
+                    </View>
+                  )}
+                  {treeData.harvest.recentBunches && treeData.harvest.recentBunches.length > 0 && (
+                    <>
+                      <Text style={styles.subLabel}>Recent Harvests:</Text>
+                      {treeData.harvest.recentBunches.slice(0, 3).map((bunch, index) => (
+                        <View key={index} style={styles.bunchItem}>
+                          <Text style={styles.bunchDate}>{formatDate(bunch.date)}</Text>
+                          <Text style={styles.bunchInfo}>
+                            {bunch.count} bunch{bunch.count > 1 ? 'es' : ''}
+                            {bunch.weight ? ` • ${bunch.weight}kg` : ''}
+                          </Text>
+                        </View>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+
+              {treeData.scanCount !== undefined && (
+                <>
+                  <View style={styles.sectionDivider} />
+                  <Text style={styles.sectionLabel}>QR Scan Statistics</Text>
+                  <DetailRow icon="eye" label="Total Scans" value={treeData.scanCount.toString()} />
+                  {treeData.lastScanned && (
+                    <DetailRow icon="time" label="Last Scanned" value={formatDate(treeData.lastScanned)} />
                   )}
                 </>
               )}
             </View>
 
-            {/* Action Buttons */}
-            <View style={styles.actionContainer}>
-              <TouchableOpacity style={styles.viewBunchesButton} activeOpacity={0.8}>
-                <LinearGradient
-                  colors={['#FF6F00', '#FF8F00']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.smallButtonGradient}
+            {/* Bunch Prediction Section */}
+            <View style={styles.predictionSection}>
+              <Text style={styles.predictionTitle}>🌾 Bunch Prediction</Text>
+              
+              {selectedImage ? (
+                <View style={styles.imagePreview}>
+                  <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => setSelectedImage(null)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#F44336" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePickerRow}>
+                  <TouchableOpacity style={styles.imagePickerButton} onPress={takePhoto}>
+                    <Ionicons name="camera" size={24} color="#2E7D32" />
+                    <Text style={styles.imagePickerText}>Take Photo</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+                    <Ionicons name="images" size={24} color="#2E7D32" />
+                    <Text style={styles.imagePickerText}>Gallery</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {selectedImage && (
+                <TouchableOpacity
+                  style={styles.predictButton}
+                  onPress={predictBunch}
+                  disabled={predicting}
                 >
-                  <Ionicons name="eye" size={18} color="#FFFFFF" />
-                  <Text style={styles.smallButtonText}>View Bunches</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <LinearGradient
+                    colors={['#FF6F00', '#FF8F00']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.predictGradient}
+                  >
+                    {predicting ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="analytics" size={20} color="#FFFFFF" />
+                        <Text style={styles.predictButtonText}>Predict Bunch Count</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -286,10 +444,10 @@ export default function SearchTreeScreen() {
         {/* Empty State */}
         {!treeData && !loading && (
           <View style={styles.emptyState}>
-            <Ionicons name="search-outline" size={64} color="#BDBDBD" />
-            <Text style={styles.emptyTitle}>No Tree Selected</Text>
+            <Ionicons name="qr-code-outline" size={64} color="#BDBDBD" />
+            <Text style={styles.emptyTitle}>Scan QR or Search Tree</Text>
             <Text style={styles.emptyText}>
-              Enter a Tree ID/Number or scan a QR code to view tree details
+              Scan a QR code on the tree or enter the tree number to view details and predict bunch count
             </Text>
           </View>
         )}
@@ -631,5 +789,122 @@ const styles = StyleSheet.create({
     marginTop: 24,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  // Highlight row for important info
+  highlightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  highlightLabel: {
+    fontSize: 14,
+    color: '#E65100',
+    fontWeight: '600',
+    flex: 1,
+  },
+  highlightValue: {
+    fontSize: 14,
+    color: '#FF6F00',
+    fontWeight: '700',
+  },
+  subLabel: {
+    fontSize: 12,
+    color: '#757575',
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  bunchItem: {
+    backgroundColor: '#F5F5F5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bunchDate: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  bunchInfo: {
+    fontSize: 12,
+    color: '#757575',
+  },
+  // Prediction Section
+  predictionSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  predictionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FF6F00',
+    marginBottom: 12,
+  },
+  imagePickerRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  imagePickerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    borderStyle: 'dashed',
+  },
+  imagePickerText: {
+    fontSize: 14,
+    color: '#2E7D32',
+    fontWeight: '600',
+  },
+  imagePreview: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+  },
+  predictButton: {
+    height: 50,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  predictGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  predictButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
