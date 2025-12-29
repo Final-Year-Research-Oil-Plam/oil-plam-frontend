@@ -165,34 +165,86 @@ export default function PredictBunchScreen() {
     
     try {
       const response = await predictBunch(selectedBlock.id, String(selectedTree.id), photo);
+
+      console.log("============", response);
+      
       
       if (response.success && response.data) {
         setPredictionResult(response.data);
         
         const bunchCount = response.data.predictedBunches || 0;
         const confidence = response.data.confidence ? `${(response.data.confidence * 100).toFixed(1)}%` : 'N/A';
+        const bunchNumber = response.data.bunchNumber || 'N/A';
+        const treeNumber = response.data.treeNumber || selectedTree?.tree_number || 'N/A';
         
         Alert.alert(
           '✅ Prediction Complete',
-          `Predicted Bunches: ${bunchCount}\nConfidence: ${confidence}`,
+          `Tree: ${treeNumber}\nBunch: ${bunchNumber}\nPredicted Bunches: ${bunchCount}\nConfidence: ${confidence}\n\nPhoto saved successfully!`,
           [
             {
-              text: 'OK',
+              text: 'Predict Another',
               onPress: () => {
-                // Optionally reset form
-                // setPhoto(null);
-                // setSelectedBlock(null);
-                // setSelectedTree(null);
+                setPhoto(null);
+                setPredictionResult(null);
               }
+            },
+            {
+              text: 'Done',
+              style: 'default'
             }
           ]
         );
       } else {
-        Alert.alert('Prediction Failed', response.message || 'Unable to predict bunch yield.');
+        console.error('❌ Prediction failed:', {
+          message: response.message
+        });
+        
+        let errorTitle = '❌ Prediction Failed';
+        let errorMessage = response.message || 'Unable to predict bunch yield.';
+        
+        // Provide specific guidance based on error type
+        if (response.message?.includes('cloud storage')) {
+          errorTitle = '☁️ Upload Configuration Error';
+          errorMessage = 'Image upload service is not properly configured. Please contact support.';
+        } else if (response.message?.includes('Network') || response.message?.includes('connect')) {
+          errorTitle = '🌐 Connection Error';
+          errorMessage = 'Cannot connect to prediction service. Please check your internet connection.';
+        } else if (response.message?.includes('Server error')) {
+          errorTitle = '🔧 Server Error';
+          errorMessage = 'Prediction service is temporarily unavailable. Please try again in a moment.';
+        }
+        
+        Alert.alert(
+          errorTitle, 
+          errorMessage,
+          [
+            {
+              text: 'Retry',
+              onPress: () => handlePredict()
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel'
+            }
+          ]
+        );
       }
     } catch (error) {
       console.error('Prediction error:', error);
-      Alert.alert('Error', 'Failed to predict bunch yield. Please try again.');
+      Alert.alert(
+        '⚠️ Connection Error', 
+        'Failed to connect to the server. Please check your internet connection and try again.',
+        [
+          {
+            text: 'Retry',
+            onPress: () => handlePredict()
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
     } finally {
       setIsPredicting(false);
     }
@@ -391,28 +443,49 @@ export default function PredictBunchScreen() {
         {predictionResult && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="analytics-outline" size={24} color="#388E3C" />
-              <Text style={styles.cardTitle}>Prediction Result</Text>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#2E7D32" />
+              <Text style={styles.cardTitle}>✅ Prediction Complete</Text>
             </View>
 
             <View style={styles.resultContainer}>
+              {predictionResult.bunchNumber && (
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Bunch ID:</Text>
+                  <Text style={styles.resultValue}>{predictionResult.bunchNumber}</Text>
+                </View>
+              )}
+
+              {predictionResult.treeNumber && (
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Tree:</Text>
+                  <Text style={styles.resultValue}>{predictionResult.treeNumber}</Text>
+                </View>
+              )}
+
               <View style={styles.resultRow}>
                 <Text style={styles.resultLabel}>Predicted Bunches:</Text>
-                <Text style={styles.resultValue}>{predictionResult.predictedBunches || 0}</Text>
+                <Text style={[styles.resultValue, styles.highlightedResult]}>{predictionResult.predictedBunches || 0}</Text>
               </View>
 
               {predictionResult.confidence && (
                 <View style={styles.resultRow}>
                   <Text style={styles.resultLabel}>Confidence:</Text>
-                  <Text style={styles.resultValue}>
+                  <Text style={[styles.resultValue, { color: predictionResult.confidence > 0.8 ? '#2E7D32' : predictionResult.confidence > 0.6 ? '#F57C00' : '#D32F2F' }]}>
                     {(predictionResult.confidence * 100).toFixed(1)}%
                   </Text>
                 </View>
               )}
 
+              {predictionResult.cloudinaryUrl && (
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Photo Status:</Text>
+                  <Text style={[styles.resultValue, { color: '#2E7D32' }]}>✅ Saved Successfully</Text>
+                </View>
+              )}
+
               {predictionResult.timestamp && (
                 <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Timestamp:</Text>
+                  <Text style={styles.resultLabel}>Date & Time:</Text>
                   <Text style={styles.resultValueSmall}>
                     {new Date(predictionResult.timestamp).toLocaleString()}
                   </Text>
@@ -874,6 +947,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1B5E20',
+  },
+
+  highlightedResult: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#2E7D32',
+    backgroundColor: 'rgba(46, 125, 50, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
 
   resultValueSmall: {

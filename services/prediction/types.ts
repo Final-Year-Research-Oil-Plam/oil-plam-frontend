@@ -5,9 +5,12 @@ export interface PredictionRequest {
 }
 
 export interface PredictionResponse {
+  bunchId?: number;
+  bunchNumber?: string;
+  treeNumber?: string;
+  cloudinaryUrl?: string;
   predictedBunches?: number;
   confidence?: number;
-  imageUrl?: string;
   timestamp?: string;
   [key: string]: any;
 }
