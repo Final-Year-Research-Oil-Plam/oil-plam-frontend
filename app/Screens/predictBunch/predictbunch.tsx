@@ -172,27 +172,11 @@ export default function PredictBunchScreen() {
       if (response.success && response.data) {
         setPredictionResult(response.data);
         
-        const bunchCount = response.data.predictedBunches || 0;
-        const confidence = response.data.confidence ? `${(response.data.confidence * 100).toFixed(1)}%` : 'N/A';
-        const bunchNumber = response.data.bunchNumber || 'N/A';
-        const treeNumber = response.data.treeNumber || selectedTree?.tree_number || 'N/A';
-        
+        // Simple success notification since we have a detailed result card
         Alert.alert(
-          '✅ Prediction Complete',
-          `Tree: ${treeNumber}\nBunch: ${bunchNumber}\nPredicted Bunches: ${bunchCount}\nConfidence: ${confidence}\n\nPhoto saved successfully!`,
-          [
-            {
-              text: 'Predict Another',
-              onPress: () => {
-                setPhoto(null);
-                setPredictionResult(null);
-              }
-            },
-            {
-              text: 'Done',
-              style: 'default'
-            }
-          ]
+          'Success',
+          'Bunch prediction completed successfully!',
+          [{ text: 'OK', style: 'default' }]
         );
       } else {
         console.error('❌ Prediction failed:', {
@@ -441,56 +425,114 @@ export default function PredictBunchScreen() {
 
         {/* Prediction Result Card */}
         {predictionResult && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#2E7D32" />
-              <Text style={styles.cardTitle}>✅ Prediction Complete</Text>
+          <View style={styles.predictionResultCard}>
+            {/* Success Header */}
+            <LinearGradient
+              colors={['#4CAF50', '#2E7D32']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.successHeader}
+            >
+              <View style={styles.successIconContainer}>
+                <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
+              </View>
+              <Text style={styles.successTitle}>Prediction Successful!</Text>
+              <Text style={styles.successSubtitle}>Bunch analysis completed</Text>
+            </LinearGradient>
+
+            {/* Main Result */}
+            <View style={styles.mainResult}>
+              <Text style={styles.mainResultLabel}>Predicted Bunches</Text>
+              <View style={styles.mainResultValue}>
+                <Text style={styles.mainResultNumber}>{predictionResult.predictedBunches || 0}</Text>
+                <Text style={styles.mainResultUnit}>bunches</Text>
+              </View>
             </View>
 
-            <View style={styles.resultContainer}>
-              {predictionResult.bunchNumber && (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Bunch ID:</Text>
-                  <Text style={styles.resultValue}>{predictionResult.bunchNumber}</Text>
-                </View>
-              )}
-
-              {predictionResult.treeNumber && (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Tree:</Text>
-                  <Text style={styles.resultValue}>{predictionResult.treeNumber}</Text>
-                </View>
-              )}
-
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Predicted Bunches:</Text>
-                <Text style={[styles.resultValue, styles.highlightedResult]}>{predictionResult.predictedBunches || 0}</Text>
-              </View>
-
+            {/* Details Grid */}
+            <View style={styles.detailsGrid}>
               {predictionResult.confidence && (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Confidence:</Text>
-                  <Text style={[styles.resultValue, { color: predictionResult.confidence > 0.8 ? '#2E7D32' : predictionResult.confidence > 0.6 ? '#F57C00' : '#D32F2F' }]}>
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Confidence</Text>
+                  <Text style={[
+                    styles.detailValue,
+                    { color: predictionResult.confidence > 0.8 ? '#2E7D32' : 
+                             predictionResult.confidence > 0.6 ? '#F57C00' : '#D32F2F' }
+                  ]}>
                     {(predictionResult.confidence * 100).toFixed(1)}%
                   </Text>
                 </View>
               )}
 
-              {predictionResult.cloudinaryUrl && (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Photo Status:</Text>
-                  <Text style={[styles.resultValue, { color: '#2E7D32' }]}>✅ Saved Successfully</Text>
-                </View>
-              )}
-
-              {predictionResult.timestamp && (
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Date & Time:</Text>
-                  <Text style={styles.resultValueSmall}>
-                    {new Date(predictionResult.timestamp).toLocaleString()}
+              {(predictionResult.treeNumber || selectedTree?.tree_number) && (
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="leaf-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Tree</Text>
+                  <Text style={styles.detailValue}>
+                    {predictionResult.treeNumber || selectedTree?.tree_number || 'N/A'}
                   </Text>
                 </View>
               )}
+
+              {predictionResult.bunchNumber && (
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="library-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Bunch ID</Text>
+                  <Text style={styles.detailValue}>{predictionResult.bunchNumber}</Text>
+                </View>
+              )}
+
+              {predictionResult.cloudinaryUrl && (
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="cloud-done-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Photo Status</Text>
+                  <Text style={[styles.detailValue, { color: '#2E7D32' }]}>Saved</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Timestamp */}
+            {predictionResult.timestamp && (
+              <View style={styles.timestampContainer}>
+                <Ionicons name="time-outline" size={16} color="#666" />
+                <Text style={styles.timestamp}>
+                  {new Date(predictionResult.timestamp).toLocaleString()}
+                </Text>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.resultActions}>
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setPhoto(null);
+                  setPredictionResult(null);
+                }}
+              >
+                <Ionicons name="camera-outline" size={20} color="#2E7D32" />
+                <Text style={styles.secondaryButtonText}>Predict Another</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.primaryButton}
+                onPress={() => {
+                  // Navigate to history or main screen
+                  router.back();
+                }}
+              >
+                <Ionicons name="checkmark-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.primaryButtonText}>Done</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -928,6 +970,182 @@ const styles = StyleSheet.create({
     borderColor: '#C8E6C9',
   },
 
+  predictionResultCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginVertical: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+
+  successHeader: {
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  successIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 50,
+    padding: 12,
+    marginBottom: 12,
+  },
+
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+
+  successSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
+
+  mainResult: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    backgroundColor: '#F8FFF9',
+  },
+
+  mainResultLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2E7D32',
+    marginBottom: 8,
+  },
+
+  mainResultValue: {
+    alignItems: 'center',
+  },
+
+  mainResultNumber: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#1B5E20',
+    lineHeight: 56,
+  },
+
+  mainResultUnit: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#388E3C',
+    marginTop: -4,
+  },
+
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 12,
+  },
+
+  detailCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F8FFF9',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+
+  detailIconContainer: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 50,
+    padding: 8,
+    marginBottom: 8,
+  },
+
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1B5E20',
+    textAlign: 'center',
+  },
+
+  timestampContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#F5F5F5',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 8,
+  },
+
+  timestamp: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  resultActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 12,
+  },
+
+  primaryButton: {
+    flex: 1,
+    backgroundColor: '#2E7D32',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2E7D32',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+
+  secondaryButtonText: {
+    color: '#2E7D32',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
   resultRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -947,16 +1165,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1B5E20',
-  },
-
-  highlightedResult: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#2E7D32',
-    backgroundColor: 'rgba(46, 125, 50, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
   },
 
   resultValueSmall: {
