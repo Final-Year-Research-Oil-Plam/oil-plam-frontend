@@ -103,23 +103,57 @@ export async function searchTreesByBlock(blockId: string): Promise<ApiResponse<T
       },
     });
 
-    const data = await response.json();
+    console.log('📡 Response status:', response.status, response.statusText);
+    
+    const data = await response.json().catch((e) => {
+      console.warn('⚠️ JSON parse failed:', e);
+      return null;
+    });
+    
     console.log('📦 Trees response:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
+      console.error('❌ HTTP Error:', response.status);
       return {
         success: false,
-        message: data.message || 'Failed to fetch trees for this block. Please try again.',
+        message: data?.message || `Failed to fetch trees (HTTP ${response.status})`,
         data: [],
       };
     }
 
-    return data;
-  } catch (error) {
-    console.error('Search trees by block error:', error);
+    // Normalize response
+    if (data && data.success !== undefined) {
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      return {
+        success: true,
+        message: 'Trees fetched successfully',
+        data,
+      };
+    }
+
+    if (data && Array.isArray(data.data)) {
+      return {
+        success: true,
+        message: 'Trees fetched successfully',
+        data: data.data,
+      };
+    }
+
+    console.error('❌ Unexpected response format:', data);
     return {
       success: false,
-      message: 'Network error. Please check your connection.',
+      message: 'Unexpected response format from server',
+      data: [],
+    };
+  } catch (error) {
+    console.error('🔥 Search trees by block error:', error);
+    return {
+      success: false,
+      message: `Network error: ${error instanceof Error ? error.message : 'Unable to connect'}`,
+      data: [],
     };
   }
 }
