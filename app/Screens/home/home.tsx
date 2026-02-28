@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, ScrollView, Alert, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { AppState } from 'react-native';
 
 interface FeatureCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -32,8 +33,33 @@ export default function HomeScreen() {
           text: 'Logout',
           style: 'destructive',
           onPress: () => {
+            setShowMenu(false);
             // Clear any stored tokens/data here
             router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleExitApp = () => {
+    Alert.alert(
+      'Exit App',
+      'Are you sure you want to exit the app?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Exit',
+          style: 'destructive',
+          onPress: () => {
+            setShowMenu(false);
+            // Exit the app
+            AppState.currentState === 'active' && AppState.addEventListener('change', () => {
+              // App closed
+            });
           },
         },
       ]
@@ -100,6 +126,76 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {/* Menu Modal */}
+      <Modal
+        visible={showMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowMenu(false)}
+        >
+          <Pressable 
+            style={styles.menuContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Menu</Text>
+              <TouchableOpacity onPress={() => setShowMenu(false)}>
+                <Ionicons name="close" size={24} color="#212121" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Menu Items */}
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                // Profile action
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person-outline" size={20} color="#2E7D32" />
+              <Text style={styles.menuItemText}>Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                // Settings action
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={20} color="#2E7D32" />
+              <Text style={styles.menuItemText}>Settings</Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#F57C00" />
+              <Text style={[styles.menuItemText, { color: '#F57C00' }]}>Logout</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={handleExitApp}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="exit-outline" size={20} color="#D32F2F" />
+              <Text style={[styles.menuItemText, { color: '#D32F2F' }]}>Exit App</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* SCROLL CONTENT */}
       <ScrollView
@@ -265,5 +361,69 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Modal and Menu Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+
+  menuContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212121',
+  },
+
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F5F5F5',
+  },
+
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212121',
+    marginLeft: 12,
+  },
+
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 12,
   },
 });

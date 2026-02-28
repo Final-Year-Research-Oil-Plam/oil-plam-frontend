@@ -1,7 +1,7 @@
 {
   "expo": {
     "extra": {
-      "API_URL_DEV": "http://172.20.10.2:3000/api",
+      "API_URL_DEV": "http://localhost:3000/api",
       "API_URL_PROD": "https://your-production-domain.com/api"
     },
     "name": "oilplam",
