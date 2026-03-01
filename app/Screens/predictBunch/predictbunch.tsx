@@ -170,24 +170,51 @@ export default function PredictBunchScreen() {
       
       
       if (response.success && response.data) {
-        setPredictionResult(response.data);
-        
-        // Simple success notification since we have a detailed result card
-        Alert.alert(
-          'Success',
-          'Bunch prediction completed successfully!',
-          [{ text: 'OK', style: 'default' }]
-        );
+        // Check if detection was successful
+        if (response.data.bunchCount === 0 || !response.data.detectionSuccess) {
+          // No bunch detected
+          Alert.alert(
+            '⚠️ No Bunch Detected',
+            response.warning || 'No bunch was detected in the image. Please retake the photo with a clearer view of the bunch.',
+            [
+              {
+                text: 'Retake Photo',
+                onPress: () => {
+                  setPhoto(null);
+                  setPredictionResult(null);
+                },
+                style: 'default'
+              },
+              {
+                text: 'View Details',
+                onPress: () => setPredictionResult(response.data),
+                style: 'default'
+              }
+            ]
+          );
+        } else {
+          // Bunch detected successfully
+          setPredictionResult(response.data);
+          Alert.alert(
+            '✅ Success',
+            'Bunch prediction completed successfully!',
+            [{ text: 'OK', style: 'default' }]
+          );
+        }
       } else {
         console.error('❌ Prediction failed:', {
-          message: response.message
+          message: response.message,
+          warning: response.warning
         });
         
         let errorTitle = '❌ Prediction Failed';
         let errorMessage = response.message || 'Unable to predict bunch yield.';
         
         // Provide specific guidance based on error type
-        if (response.message?.includes('cloud storage')) {
+        if (response.warning?.includes('no bunch')) {
+          errorTitle = '⚠️ No Bunch Detected';
+          errorMessage = response.warning;
+        } else if (response.message?.includes('cloud storage')) {
           errorTitle = '☁️ Upload Configuration Error';
           errorMessage = 'Image upload service is not properly configured. Please contact support.';
         } else if (response.message?.includes('Network') || response.message?.includes('connect')) {
@@ -426,79 +453,213 @@ export default function PredictBunchScreen() {
         {/* Prediction Result Card */}
         {predictionResult && (
           <View style={styles.predictionResultCard}>
-            {/* Success Header */}
-            <LinearGradient
-              colors={['#4CAF50', '#2E7D32']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.successHeader}
-            >
-              <View style={styles.successIconContainer}>
-                <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
-              </View>
-              <Text style={styles.successTitle}>Prediction Successful!</Text>
-              <Text style={styles.successSubtitle}>Bunch analysis completed</Text>
-            </LinearGradient>
+            {/* Header - Changes based on detection result */}
+            {predictionResult.bunchCount === 0 || !predictionResult.detectionSuccess ? (
+              // No Detection Header
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.successHeader}
+              >
+                <View style={styles.successIconContainer}>
+                  <Ionicons name="alert-circle" size={32} color="#FFFFFF" />
+                </View>
+                <Text style={styles.successTitle}>No Bunch Detected</Text>
+                <Text style={styles.successSubtitle}>Unable to locate a bunch in the image</Text>
+              </LinearGradient>
+            ) : (
+              // Success Header
+              <LinearGradient
+                colors={['#4CAF50', '#2E7D32']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.successHeader}
+              >
+                <View style={styles.successIconContainer}>
+                  <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
+                </View>
+                <Text style={styles.successTitle}>Prediction Successful!</Text>
+                <Text style={styles.successSubtitle}>Bunch analysis completed</Text>
+              </LinearGradient>
+            )}
 
-            {/* Main Result */}
-            <View style={styles.mainResult}>
-              <Text style={styles.mainResultLabel}>Predicted Bunches</Text>
-              <View style={styles.mainResultValue}>
-                <Text style={styles.mainResultNumber}>{predictionResult.predictedBunches || 0}</Text>
-                <Text style={styles.mainResultUnit}>bunches</Text>
+            {/* Show "No Detection" message or results based on detection status */}
+            {predictionResult.bunchCount === 0 || !predictionResult.detectionSuccess ? (
+              // No Detection Content
+              <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, color: '#333', marginBottom: 16, textAlign: 'center' }}>
+                  {predictionResult.mlMessage || 'No object was detected in this image.'}
+                </Text>
+                <View style={{ 
+                  backgroundColor: '#FFF3E0', 
+                  padding: 16, 
+                  borderRadius: 12,
+                  borderLeftWidth: 4,
+                  borderLeftColor: '#FF9800',
+                  marginTop: 8
+                }}>
+                  <Text style={{ fontSize: 14, color: '#E65100', fontWeight: '500' }}>
+                    💡 Tip: Make sure the bunch is clearly visible in the photo. Try:\n
+                    • Get closer to the bunch\n
+                    • Ensure good lighting\n
+                    • Capture the entire bunch in frame
+                  </Text>
+                </View>
               </View>
-            </View>
+            ) : (
+              // Success Detection Content - Show all results
+              <>
+            <View style={styles.resultSection}>
+              <Text style={styles.sectionTitle}>🔍 Detection Results</Text>
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="albums-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Bunches Detected</Text>
+                  <Text style={styles.detailValue}>{predictionResult.bunchCount ?? 0}</Text>
+                </View>
 
-            {/* Details Grid */}
-            <View style={styles.detailsGrid}>
-              {predictionResult.confidence && (
                 <View style={styles.detailCard}>
                   <View style={styles.detailIconContainer}>
                     <Ionicons name="analytics-outline" size={20} color="#2E7D32" />
                   </View>
-                  <Text style={styles.detailLabel}>Confidence</Text>
+                  <Text style={styles.detailLabel}>Detection Confidence</Text>
                   <Text style={[
                     styles.detailValue,
-                    { color: predictionResult.confidence > 0.8 ? '#2E7D32' : 
-                             predictionResult.confidence > 0.6 ? '#F57C00' : '#D32F2F' }
+                    { color: (predictionResult.classConfidence ?? 0) > 80 ? '#2E7D32' : 
+                             (predictionResult.classConfidence ?? 0) > 60 ? '#F57C00' : '#D32F2F' }
                   ]}>
-                    {(predictionResult.confidence * 100).toFixed(1)}%
+                    {(predictionResult.classConfidence ?? 0).toFixed(1)}%
                   </Text>
                 </View>
-              )}
-
-              {(predictionResult.treeNumber || selectedTree?.tree_number) && (
-                <View style={styles.detailCard}>
-                  <View style={styles.detailIconContainer}>
-                    <Ionicons name="leaf-outline" size={20} color="#2E7D32" />
-                  </View>
-                  <Text style={styles.detailLabel}>Tree</Text>
-                  <Text style={styles.detailValue}>
-                    {predictionResult.treeNumber || selectedTree?.tree_number || 'N/A'}
-                  </Text>
-                </View>
-              )}
-
-              {predictionResult.bunchNumber && (
-                <View style={styles.detailCard}>
-                  <View style={styles.detailIconContainer}>
-                    <Ionicons name="library-outline" size={20} color="#2E7D32" />
-                  </View>
-                  <Text style={styles.detailLabel}>Bunch ID</Text>
-                  <Text style={styles.detailValue}>{predictionResult.bunchNumber}</Text>
-                </View>
-              )}
-
-              {predictionResult.cloudinaryUrl && (
-                <View style={styles.detailCard}>
-                  <View style={styles.detailIconContainer}>
-                    <Ionicons name="cloud-done-outline" size={20} color="#2E7D32" />
-                  </View>
-                  <Text style={styles.detailLabel}>Photo Status</Text>
-                  <Text style={[styles.detailValue, { color: '#2E7D32' }]}>Saved</Text>
-                </View>
-              )}
+              </View>
             </View>
+
+            {/* 🟢 Classification Results Section */}
+            <View style={styles.resultSection}>
+              <Text style={styles.sectionTitle}>📊 Ripeness Classification</Text>
+              <View style={styles.detailsGrid}>
+                <View style={[
+                  styles.detailCard,
+                  { 
+                    backgroundColor: predictionResult.bunchClass === 'ripe' ? '#E8F5E9' : '#FFF8E1'
+                  }
+                ]}>
+                  <View style={[
+                    styles.detailIconContainer,
+                    { 
+                      backgroundColor: predictionResult.bunchClass === 'ripe' ? '#C8E6C9' : '#FFE0B2'
+                    }
+                  ]}>
+                    <Text style={{fontSize: 20}}>
+                      {predictionResult.bunchClass === 'ripe' ? '🟢' : '🟡'}
+                    </Text>
+                  </View>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text style={[
+                    styles.detailValue,
+                    { 
+                      color: predictionResult.bunchClass === 'ripe' ? '#2E7D32' : '#F57C00',
+                      fontWeight: '600'
+                    }
+                  ]}>
+                    {predictionResult.bunchClass?.toUpperCase() || 'UNKNOWN'}
+                  </Text>
+                </View>
+
+                <View style={styles.detailCard}>
+                  <View style={styles.detailIconContainer}>
+                    <Ionicons name="radio-button-on-outline" size={20} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.detailLabel}>Classification Confidence</Text>
+                  <Text style={[
+                    styles.detailValue,
+                    { color: (predictionResult.classConfidence ?? 0) > 80 ? '#2E7D32' : 
+                             (predictionResult.classConfidence ?? 0) > 60 ? '#F57C00' : '#D32F2F' }
+                  ]}>
+                    {(predictionResult.classConfidence ?? 0).toFixed(1)}%
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 📅 Harvest Prediction Section */}
+            {predictionResult.harvestDay && (
+              <View style={[styles.resultSection, { backgroundColor: '#F1F8E9', borderRadius: 12, padding: 16 }]}>
+                <Text style={styles.sectionTitle}>📅 Harvest Prediction</Text>
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>Estimated Harvest Time:</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ 
+                      backgroundColor: '#4CAF50', 
+                      paddingVertical: 12, 
+                      paddingHorizontal: 20, 
+                      borderRadius: 8,
+                      marginRight: 12
+                    }}>
+                      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#FFFFFF' }}>
+                        {predictionResult.harvestDay}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 14, color: '#333', flex: 1 }}>
+                      Ready for harvest in {predictionResult.harvestDay?.match(/\d+/)?.[0]} days
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Tree & Bunch Info */}
+            <View style={styles.resultSection}>
+              <Text style={styles.sectionTitle}>📋 Metadata</Text>
+              <View style={styles.detailsGrid}>
+                {(predictionResult.treeNumber || selectedTree?.tree_number) && (
+                  <View style={styles.detailCard}>
+                    <View style={styles.detailIconContainer}>
+                      <Ionicons name="leaf-outline" size={20} color="#2E7D32" />
+                    </View>
+                    <Text style={styles.detailLabel}>Tree</Text>
+                    <Text style={styles.detailValue}>
+                      {predictionResult.treeNumber || selectedTree?.tree_number || 'N/A'}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedBlock && (
+                  <View style={styles.detailCard}>
+                    <View style={styles.detailIconContainer}>
+                      <Ionicons name="cube-outline" size={20} color="#2E7D32" />
+                    </View>
+                    <Text style={styles.detailLabel}>Block</Text>
+                    <Text style={styles.detailValue}>{selectedBlock.id}</Text>
+                  </View>
+                )}
+
+                {predictionResult.bunchNumber && (
+                  <View style={styles.detailCard}>
+                    <View style={styles.detailIconContainer}>
+                      <Ionicons name="library-outline" size={20} color="#2E7D32" />
+                    </View>
+                    <Text style={styles.detailLabel}>Bunch ID</Text>
+                    <Text style={styles.detailValue}>{predictionResult.bunchNumber}</Text>
+                  </View>
+                )}
+
+                {predictionResult.imageUrl && (
+                  <View style={styles.detailCard}>
+                    <View style={styles.detailIconContainer}>
+                      <Ionicons name="cloud-done-outline" size={20} color="#2E7D32" />
+                    </View>
+                    <Text style={styles.detailLabel}>Photo Status</Text>
+                    <Text style={[styles.detailValue, { color: '#2E7D32' }]}>Saved</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            </>
+            )}
 
             {/* Timestamp */}
             {predictionResult.timestamp && (
@@ -1173,5 +1334,20 @@ const styles = StyleSheet.create({
     color: '#666',
     maxWidth: '60%',
     textAlign: 'right',
+  },
+
+  // New sections for YOLO prediction results
+  resultSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginHorizontal: 0,
+    marginVertical: 8,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1B5E20',
+    marginBottom: 12,
   },
 });

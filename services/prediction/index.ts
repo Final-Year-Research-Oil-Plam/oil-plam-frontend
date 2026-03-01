@@ -2,8 +2,8 @@ import { API_BASE_URL, ApiResponse } from '../api-config';
 import type { PredictionResponse } from './types';
 
 /**
- * POST /api/bunches/predict
- * Send image and tree data for bunch prediction
+ * POST /api/predict/generate
+ * Send image and tree data for bunch prediction using ML model
  */
 export async function predictBunch(
   blockId: string,
@@ -51,9 +51,9 @@ export async function predictBunch(
     console.log('  - image:', { uri: imageUri, name: filename, type });
     console.log('  - blockId:', blockId);
     console.log('  - treeId:', treeId);
-    console.log('📡 Sending request to:', `${API_BASE_URL}/bunches/predict`);
+    console.log('📡 Sending request to:', `${API_BASE_URL}/predict/generate`);
 
-    const response = await fetch(`${API_BASE_URL}/bunches/predict`, {
+    const response = await fetch(`${API_BASE_URL}/predict/generate`, {
       method: 'POST',
       body: formData,
     });
