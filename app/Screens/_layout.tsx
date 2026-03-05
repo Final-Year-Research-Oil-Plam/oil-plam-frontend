@@ -11,6 +11,7 @@ export default function ScreensLayout() {
       <Stack.Screen name="qrscan/qr-scan" options={{ headerShown: false }} />
       <Stack.Screen name="searchTree/search-tree" options={{ headerShown: false }} />
       <Stack.Screen name="predictBunch/predictbunch" options={{ headerShown: false }} />
+      <Stack.Screen name="predictBunch/prediction-result" options={{ headerShown: false }} />
     </Stack>
   );
 }
